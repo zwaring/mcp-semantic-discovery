@@ -1,5 +1,35 @@
 # MCP Semantic Discovery Reference
 
+## ELI5 — What is this project?
+
+Imagine two people are talking. One person uses a new phrase the other person has never heard before — like **“no cap.”**
+
+Instead of ending the conversation, the other person asks:
+
+> “What does that mean?”
+
+They learn that it means **“genuinely” or “truthfully,”** remember it, and keep talking. The next time they hear it, they already understand it.
+
+This project explores how AI agents and MCP clients could do the same thing.
+
+Today, software usually has to already know the protocol features and concepts another system will use. When something new appears, the usual answer is to update the software or move to a newer protocol version.
+
+This prototype asks a different question:
+
+> **What if an agent could quickly discover what changed, learn the meaning of a new concept, remember it, and continue — without requiring a full software upgrade?**
+
+At the beginning of a conversation, the two systems compare a tiny **knowledge fingerprint** — similar to asking, “Do we already understand the same vocabulary?”
+
+- If the fingerprints match, they immediately continue.
+- If they differ, they ask only **what changed**.
+- If a new concept is actually needed, the client retrieves its definition.
+- The client validates and remembers that definition.
+- Future conversations can skip the learning step.
+
+The larger idea is to make communication between AI systems more adaptable: **teach the missing meaning instead of replacing the whole protocol.**
+
+---
+
 A small reference prototype for **semantic capability discovery** on top of MCP-style negotiation.
 
 The goal: when a client encounters an unfamiliar concept, it can discover a machine-readable definition, validate it, cache it, and continue without requiring a software upgrade. A compact **knowledge fingerprint** makes subsequent negotiations nearly free when nothing has changed.
