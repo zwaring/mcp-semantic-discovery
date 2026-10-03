@@ -9,7 +9,7 @@ ROOT = Path(__file__).parent
 DEFINITIONS = ROOT / "definitions"
 
 
-def _canonical_bytes(value: dict) -> bytes:
+def _canonical_bytes(value) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
@@ -38,3 +38,36 @@ def list_definitions() -> list[dict]:
             "digest": definition["provenance"]["digest"],
         }
     ]
+
+
+def knowledge_fingerprint(catalog: list[dict] | None = None) -> str:
+    """Hash the ordered concept identities + digests, not the full documents."""
+    catalog = catalog if catalog is not None else list_definitions()
+    compact = [
+        {"id": item["id"], "version": item["version"], "digest": item["digest"]}
+        for item in sorted(catalog, key=lambda x: (x["id"], x["version"]))
+    ]
+    return "sha256:" + hashlib.sha256(_canonical_bytes(compact)).hexdigest()
+
+
+def catalog_delta(known: list[dict]) -> dict:
+    """Return only concepts whose identity/version/digest differ from the client view."""
+    server_catalog = list_definitions()
+    known_map = {(x["id"], x["version"]): x.get("digest") for x in known}
+    server_map = {(x["id"], x["version"]): x.get("digest") for x in server_catalog}
+
+    added_or_changed = [
+        item
+        for item in server_catalog
+        if known_map.get((item["id"], item["version"])) != item["digest"]
+    ]
+    removed = [
+        {"id": concept_id, "version": version}
+        for concept_id, version in known_map
+        if (concept_id, version) not in server_map
+    ]
+    return {
+        "fingerprint": knowledge_fingerprint(server_catalog),
+        "added_or_changed": added_or_changed,
+        "removed": removed,
+    }
