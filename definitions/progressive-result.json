@@ -1,0 +1,46 @@
+{
+  "id": "com.example/progressive-result",
+  "version": 1,
+  "kind": "semantic-concept",
+  "description": "A result may be incomplete and followed by additional results before the task is final.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "result_type": {"const": "progressive"},
+      "complete": {"type": "boolean"},
+      "sequence": {"type": "integer", "minimum": 1},
+      "data": {}
+    },
+    "required": ["result_type", "complete", "sequence", "data"]
+  },
+  "semantics": {
+    "complete": false,
+    "more_results_expected": true
+  },
+  "behavior": {
+    "on_receive": "do_not_finalize_task",
+    "next": "expect_additional_result"
+  },
+  "fallback": {
+    "supported": true,
+    "behavior": "buffer_until_complete"
+  },
+  "examples": [
+    {
+      "result_type": "progressive",
+      "complete": false,
+      "sequence": 1,
+      "data": {"message": "partial"}
+    },
+    {
+      "result_type": "progressive",
+      "complete": true,
+      "sequence": 2,
+      "data": {"message": "final"}
+    }
+  ],
+  "provenance": {
+    "publisher": "com.example",
+    "digest_algorithm": "sha256"
+  }
+}
