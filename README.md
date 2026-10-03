@@ -2,34 +2,44 @@
 
 A small reference prototype for **semantic capability discovery** on top of MCP-style negotiation.
 
-The goal is simple: when a client encounters an unfamiliar concept, it should be able to discover a machine-readable definition, validate it, cache it, and continue without requiring a software upgrade.
+The goal: when a client encounters an unfamiliar concept, it can discover a machine-readable definition, validate it, cache it, and continue without requiring a software upgrade. A compact **knowledge fingerprint** makes subsequent negotiations nearly free when nothing has changed.
 
 ## Demo flow
 
 ```text
-Client starts with no knowledge of `com.example/progressive-result@1`
+Client starts with its local semantic fingerprint
         |
         v
-server/discover
+server/discover(client_fingerprint)
         |
-        v
-Server advertises the concept
+        +---- fingerprints match ----> continue immediately
         |
-        v
-Client sees an unknown concept
-        |
-        v
-definitions/get
-        |
-        v
-schema + semantics + behavior + fallback + provenance
-        |
-        v
-validate -> cache -> continue
-        |
-        v
-Second run: concept is already cached; no definition lookup needed
+        `---- fingerprints differ
+                    |
+                    v
+              definitions/delta
+                    |
+                    v
+          IDs/versions/digests that changed
+                    |
+                    v
+        unknown concept is actually used
+                    |
+                    v
+              definitions/get
+                    |
+                    v
+ schema + semantics + behavior + fallback + provenance
+                    |
+                    v
+           validate -> cache -> continue
 ```
+
+This separates three costs:
+
+1. **Fast agreement** — compare one fingerprint.
+2. **Change discovery** — request only a small metadata delta if fingerprints differ.
+3. **Learning** — fetch a full definition only when an unfamiliar concept is actually needed.
 
 ## Why this is different from protocol versioning
 
@@ -39,35 +49,58 @@ Protocol versioning answers:
 
 Semantic discovery answers:
 
-> I encountered a concept I do not understand. Where is its canonical definition, what behavior does it imply, and can I safely continue?
+> Is our shared vocabulary identical? If not, what changed, what does the unfamiliar concept mean, and can I safely continue?
 
-This prototype intentionally keeps those concerns separate.
+The fingerprint is computed from sorted concept IDs, versions, and definition digests. It is analogous to content-addressed synchronization: identical knowledge produces identical fingerprints without exchanging the entire catalog.
 
 ## Run
 
 Requires Python 3.11+ and no third-party packages.
 
 ```bash
-python demo.py
+python demo.py --reset-cache
 ```
 
-To reset the learned-definition cache:
+Expected behavior:
 
-```bash
-python demo.py --reset-cache
+```text
+PASS 1
+FINGERPRINT DIFF: requesting semantic delta
+DELTA        ['com.example/progressive-result@1']
+UNKNOWN      com.example/progressive-result@1
+LOOKUP       definitions/get(...)
+LEARNED      com.example/progressive-result@1
+DELTA LOOKUPS      1
+DEFINITION LOOKUPS 1
+
+PASS 2
+FINGERPRINT MATCH: semantic vocabulary already synchronized
+CACHE HIT    com.example/progressive-result@1
+DELTA LOOKUPS      0
+DEFINITION LOOKUPS 0
+
+PASS: first run requested one delta and one definition; second run required neither.
 ```
 
 ## Files
 
-- `server.py` — tiny reference server that advertises a new semantic concept
-- `client.py` — reference client with unknown-concept detection, resolution, validation, and caching
-- `registry.py` — local definition library used by the server
+- `server.py` — reference server with fingerprint-first discovery and delta support
+- `client.py` — client with negotiation, unknown-concept resolution, validation, and caching
+- `registry.py` — definition library, fingerprint calculation, and catalog-delta calculation
 - `definitions/progressive-result.json` — machine-readable concept definition
-- `demo.py` — two-pass demonstration
+- `demo.py` — two-pass demonstration of slow-path learning followed by fast-path agreement
+
+## Proposed primitives
+
+The prototype intentionally uses a tiny semantic bootstrap:
+
+- `semantic_knowledge.fingerprint` — compact identity of the vocabulary understood by a participant
+- `definitions/delta` — return only concept metadata that differs
+- `definitions/get` — retrieve one full definition when it is actually needed
+
+These names are experimental and are **not current MCP standard methods**.
 
 ## Definition shape
-
-A concept definition can contain:
 
 ```json
 {
@@ -94,18 +127,21 @@ A concept definition can contain:
 }
 ```
 
-The natural-language description is useful to LLMs, while the structured semantics and behavior are suitable for conventional software and future model architectures that should not depend on prose alone.
+The natural-language description is useful to LLMs, while structured semantics and behavior allow deterministic clients and other model architectures to participate without depending on prose alone.
 
 ## Design principles
 
-1. **Tiny bootstrap** — clients need only know how to discover and fetch definitions.
-2. **Concept identity** — each unfamiliar concept has a stable ID + version.
-3. **Machine-readable semantics** — behavior is encoded structurally, not just in prose.
-4. **Safe fallback** — definitions can explain how older clients should degrade gracefully.
-5. **Trust and provenance** — definitions include publisher and digest metadata.
-6. **Caching** — once learned, a definition is reused without another lookup.
-7. **Protocol-agnostic** — this is a reference pattern, not a claim that these exact method names are already standardized MCP methods.
+1. **Tiny bootstrap** — learn only a few discovery primitives.
+2. **Fast common case** — one fingerprint comparison when knowledge is already synchronized.
+3. **Delta synchronization** — exchange only what changed.
+4. **Lazy learning** — fetch full definitions only when a changed concept is actually used.
+5. **Concept identity** — stable ID + version + digest.
+6. **Machine-readable semantics** — behavior is structural, not just prose.
+7. **Safe fallback** — definitions explain graceful degradation.
+8. **Trust and provenance** — definitions carry publisher and digest metadata.
+9. **Caching** — learned semantics survive future connections.
+10. **Protocol-agnostic** — this demonstrates a pattern rather than claiming these exact methods are standardized MCP.
 
 ## Important status
 
-This repository is an experimental reference implementation for discussion. `definitions/get` and the semantic definition envelope shown here are **proposed concepts**, not current MCP standard methods.
+This repository is an experimental reference implementation for discussion. The semantic fingerprint, `definitions/delta`, `definitions/get`, and definition envelope shown here are proposed concepts, not current MCP standard methods.
